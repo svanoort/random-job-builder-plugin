@@ -6,10 +6,12 @@ import hudson.model.Cause;
 import hudson.model.Descriptor;
 import hudson.model.Item;
 import hudson.model.ItemGroup;
+import hudson.model.Job;
 import hudson.model.PeriodicWork;
 import hudson.model.Project;
 import hudson.security.ACL;
 import jenkins.model.Jenkins;
+import jenkins.model.ParameterizedJobMixIn;
 import net.sf.json.JSONObject;
 import org.acegisecurity.context.SecurityContext;
 import org.acegisecurity.context.SecurityContextHolder;
@@ -69,7 +71,7 @@ public class RandomJobBuilder extends AbstractDescribableImpl<RandomJobBuilder> 
 
         @Override
         protected void doRun() throws Exception {
-            DescriptorImpl d = Jenkins.getInstance().getDescriptorByType(DescriptorImpl.class);
+            DescriptorImpl d = Jenkins.getActiveInstance().getDescriptorByType(DescriptorImpl.class);
             if (d.getBuildsPerMin() <= 0) {
                 lastTime = System.currentTimeMillis();
                 return;
@@ -86,10 +88,22 @@ public class RandomJobBuilder extends AbstractDescribableImpl<RandomJobBuilder> 
             }
         }
 
+        static class ParameterizedBuilder extends ParameterizedJobMixIn {
+            Job job;
+
+            ParameterizedBuilder(Job j) {
+                this.job = j;
+            }
+
+            @Override protected Job asJob() {
+                return job;
+            }
+        }
+
         private boolean startBuild() {
             SecurityContext context = ACL.impersonate(ACL.SYSTEM);
             try {
-                ItemGroup<? extends Item> group = Jenkins.getInstance();
+                ItemGroup<? extends Item> group = Jenkins.getActiveInstance();
                 if (group.getItems().isEmpty()) {
                     return false;
                 }
@@ -98,6 +112,10 @@ public class RandomJobBuilder extends AbstractDescribableImpl<RandomJobBuilder> 
                         return false;
                     }
                     Item item = pickItem(group);
+                    if (item instanceof ParameterizedJobMixIn.ParameterizedJob && item instanceof Job) {
+                        // Project and other types
+                        new ParameterizedBuilder((Job)item).scheduleBuild(0, new RandomJobBuilderCause());
+                    }
                     if (item instanceof Project) {
                         ((Project) item).scheduleBuild2(0, new RandomJobBuilderCause());
                         return true;
