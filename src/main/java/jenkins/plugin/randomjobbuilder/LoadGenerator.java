@@ -6,13 +6,16 @@ import hudson.model.AbstractDescribableImpl;
 import hudson.model.Descriptor;
 import hudson.model.Failure;
 import hudson.model.Job;
+import hudson.model.ReconfigurableDescribable;
 import hudson.util.FormValidation;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.DataBoundSetter;
 import org.kohsuke.stapler.QueryParameter;
+import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
@@ -24,7 +27,7 @@ import java.util.UUID;
 /** Base for all load generators that run jobs */
 @ExportedBean
 @Restricted(NoExternalUse.class) // Until the APIs are more rigidly defined
-public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerator> implements ExtensionPoint {
+public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerator> implements ExtensionPoint, ReconfigurableDescribable<LoadGenerator> {
     /** Identifies the generator for causes */
     @Nonnull
     String generatorId;
@@ -36,6 +39,8 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
     /** User-readable description */
     @CheckForNull
     String description;
+
+    protected int concurrentRunCount = 0;
 
     protected LoadTestMode loadTestMode = LoadTestMode.IDLE;
 
@@ -136,7 +141,14 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
      * @return -1 for unlimited, 0 if none, or positive integer for intended count
      */
     @Exported
-    public abstract int getConcurrentRunCount();
+    public int getConcurrentRunCount() {
+        return concurrentRunCount;
+    }
+
+    @DataBoundSetter
+    public void setConcurrentRunCount(int concurrentRunCount) {
+        this.concurrentRunCount = concurrentRunCount;
+    }
 
     /** Descriptors neeed to extend this */
     @Extension
@@ -169,6 +181,28 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
                 return FormValidation.error(fail.getMessage());
             }
             return FormValidation.ok();
+        }
+    }
+
+    /**
+     * Used to propagate internal state when child classes reconfigure settings on the load generator
+     * To retain state info, this reconfigures the generator's user-configurable properties using the input.
+     * All child classes MUST override and invoke the super call when extending and overriding this + copy in the editable fields
+     */
+    public LoadGenerator reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
+        if (form == null) {
+            return null; // deleted
+        } else {
+            LoadGenerator gen = this.getDescriptor().newInstance(req, form);
+            if (this.generatorId.equals(gen.getGeneratorId())) { // Same generator
+                // Copy in data and return this
+                this.setDescription(gen.getDescription());
+                this.setShortName(gen.getShortName());
+                this.setConcurrentRunCount(gen.getConcurrentRunCount());
+                return this;
+            } else { // New instance entirely
+                return gen;
+            }
         }
     }
 

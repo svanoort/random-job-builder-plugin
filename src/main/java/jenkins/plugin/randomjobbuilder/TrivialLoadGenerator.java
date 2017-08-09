@@ -2,10 +2,13 @@ package jenkins.plugin.randomjobbuilder;
 
 import com.google.common.base.Predicate;
 import hudson.Extension;
+import hudson.model.Descriptor;
 import hudson.model.Job;
+import net.sf.json.JSONObject;
 import org.apache.commons.lang.StringUtils;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
+import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.export.Exported;
 
 import javax.annotation.CheckForNull;
@@ -14,7 +17,8 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/** Simple job runner that immediately starts them and keeps restarting then they finish or die */
+/** Simple load generator that filters
+ */
 public class TrivialLoadGenerator extends LoadGenerator {
 
     private String jobNameRegex = null;
@@ -49,20 +53,6 @@ public class TrivialLoadGenerator extends LoadGenerator {
         this.jobNameRegex = jobNameRegex;
     }
 
-    public int getConcurrentRunCount() {
-        return concurrentRunCount;
-    }
-
-    @DataBoundSetter
-    public void setConcurrentRunCount(int concurrentRunCount) {
-        this.concurrentRunCount = concurrentRunCount;
-    }
-
-    @DataBoundSetter
-    public void setGeneratorId(@Nonnull String generatorId) {
-        super.setGeneratorId(generatorId);
-    }
-
     @DataBoundConstructor
     public TrivialLoadGenerator() {
 
@@ -78,7 +68,24 @@ public class TrivialLoadGenerator extends LoadGenerator {
 
         @Override
         public String getDisplayName() {
-            return "Trivial Filtered Job Builder";
+            return "Jobs from regex match and immediate load";
+        }
+    }
+
+    @Override
+    public LoadGenerator reconfigure(@Nonnull StaplerRequest req, @CheckForNull JSONObject form) throws Descriptor.FormException {
+        if (form == null) {
+            return null; // deleted
+        } else {
+            TrivialLoadGenerator gen = (TrivialLoadGenerator)this.getDescriptor().newInstance(req, form);
+            if (this.generatorId.equals(gen.getGeneratorId())) { // Same generator
+                // Copy in data and return this
+                super.reconfigure(req, form);
+                this.setJobNameRegex(gen.getJobNameRegex());
+                return this;
+            } else { // New instance entirely
+                return gen;
+            }
         }
     }
 
