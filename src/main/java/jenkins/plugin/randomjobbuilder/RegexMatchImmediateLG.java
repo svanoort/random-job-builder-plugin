@@ -24,17 +24,17 @@ public class RegexMatchImmediateLG extends LoadGenerator {
     private int concurrentRunCount = 1;
 
     @Override
-    public List<Job> getCandidateJobs() {
+    public List<Job> getCandidateJobs(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         return LoadGeneration.filterJobsByCondition(new JobNameFilter(jobNameRegex));
     }
 
     @Override
-    protected LoadTestMode startInternal() {
+    protected LoadTestMode startInternal(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         return LoadTestMode.LOAD_TEST;
     }
 
     @Override
-    public LoadTestMode stopInternal() {
+    public LoadTestMode stopInternal(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         return LoadTestMode.IDLE;
     }
 
@@ -69,9 +69,9 @@ public class RegexMatchImmediateLG extends LoadGenerator {
     }
 
     @Override
-    public int getRunsToLaunch(int currentRuns) {
-        if (isActive() && getConcurrentRunCount() > 0) {
-            return getConcurrentRunCount()-currentRuns;
+    public int getRunsToLaunch(@Nonnull LoadGeneratorRuntimeState runtimeState) {
+        if (runtimeState.isActive() && getConcurrentRunCount() > 0) {
+            return getConcurrentRunCount()-runtimeState.getActiveCount();
         }
         return 0;
     }

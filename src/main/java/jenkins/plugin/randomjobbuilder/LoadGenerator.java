@@ -21,7 +21,9 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.UUID;
 
-/** Base for all load generators that run jobs */
+/** Base for all load generators that run jobs.
+ *  <strong>Implementation note: implementation MUST</strong> implement a {@link Descriptor} extending {@link DescriptorBase}.
+ */
 @ExportedBean
 public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerator> implements ExtensionPoint {
     /** Identifies the generator for causes */
@@ -103,63 +105,43 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
         this.description = desc;
     }
 
-    public boolean isActive() {
-        return getLoadTestMode() == LoadTestMode.RAMP_UP || getLoadTestMode() == LoadTestMode.LOAD_TEST;
-    }
-
     /** Given current number of runs, launch more if needed.  Return number to fire now, or &lt;= 0 for none
      *  This allows for ramp-up behavior.
      */
-    public abstract int getRunsToLaunch(int currentRuns);
+    public abstract int getRunsToLaunch(@Nonnull LoadGeneratorRuntimeState runtimeState);
 
-    /** Copy over internal state information from a newly configured instance of the same {@link LoadGenerator} type.
-     *  This is to allow users to reconfigure load generators on the fly without removing and recreating them.
-     *  This is *probably* a workaround until we can get this to correctly use {@link hudson.model.ReconfigurableDescribable}
-     *
-     *  Classes extending LoadGenerator should call super() on this
-     */
-     void copyStateFrom(LoadGenerator original) {
-         this.loadTestMode = original.getLoadTestMode();
-     }
-
-
-    public abstract List<Job> getCandidateJobs();
+    /** FIXME use the runtime state somehow */
+    public abstract List<Job> getCandidateJobs(@Nonnull LoadGeneratorRuntimeState runtimeState);
 
     /** Begin running load test and then switch to full load after any ramp-up time, firing {@link GeneratorControllerListener#onGeneratorStarted(LoadGenerator)}
-     *  Implementations should provide logic for this in {@link #startInternal()}
+     *  Implementations should provide logic for this in {@link #startInternal(LoadGeneratorRuntimeState)}
      *  @return {@link LoadTestMode} phase as we transition to starting load test, i.e. LOAD_TEST or RAMP_UP
      */
-    public final LoadTestMode start() {
-        GeneratorControllerListener.fireGeneratorStarted(this);
-        LoadTestMode lt = startInternal();
-        setLoadTestMode(lt);
-        return lt;
+    public final void start(@Nonnull LoadGeneratorRuntimeState runtimeState) {
+        GeneratorControllerListener.fireGeneratorStarted(this, runtimeState);
+        LoadTestMode lt = startInternal(runtimeState);
+        runtimeState.setLoadTestMode(lt);
     }
 
     /** Provide the actual implementation of state change in the start method and return new state */
-    protected abstract LoadTestMode startInternal();
+    protected abstract LoadTestMode startInternal(@Nonnull LoadGeneratorRuntimeState runtimeState);
 
     /**
      * Start shutting down the load test and then stop it after ramp-down, firing {@link GeneratorControllerListener#onGeneratorStopped(LoadGenerator)} (LoadGenerator)}
-     *  Implementations should provide logic for this in {@link #stopInternal()}
+     *  Implementations should provide logic for this in {@link #stopInternal(LoadGeneratorRuntimeState)}
      * @return {@link LoadTestMode} as we transition to shutting load load test, i.e. RAMP_DOWN or IDLE
      */
-    public final LoadTestMode stop() {
-        GeneratorControllerListener.fireGeneratorStopped(this);
-        LoadTestMode lt = stopInternal();
-        setLoadTestMode(lt);
-        return lt;
-    }
-
-    /** Between this and the getter, this may be used to trigger events on change */
-    protected void setLoadTestMode(LoadTestMode testMode) {
-        this.loadTestMode = testMode;
+    public final void stop(@Nonnull LoadGeneratorRuntimeState runtimeState) {
+        GeneratorControllerListener.fireGeneratorStopped(this, runtimeState);
+        LoadTestMode lt = stopInternal(runtimeState);
+        runtimeState.setLoadTestMode(lt);
     }
 
     /** Provide the actual implementation of state change in the stop method and return new state */
-    protected abstract LoadTestMode stopInternal();
+    protected abstract LoadTestMode stopInternal(@Nonnull LoadGeneratorRuntimeState runtimeState);
 
-    /** Descriptors neeed to extend this */
+
+    /** Descriptors MUST extend this and implement {@link #initializeState()} if they need more complex state. */
     @Extension
     public static class DescriptorBase extends Descriptor<LoadGenerator> {
 
@@ -179,6 +161,11 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
                 return FormValidation.error("Generator ID \"{0}\" is empty!");
             }
             return FormValidation.ok();
+        }
+
+        /** Create the initial state, and override if you need fancier variants. */
+        public LoadGeneratorRuntimeState initializeState() {
+            return new LoadGeneratorRuntimeState();
         }
 
         public FormValidation doCheckShortName(@QueryParameter String shortName) {

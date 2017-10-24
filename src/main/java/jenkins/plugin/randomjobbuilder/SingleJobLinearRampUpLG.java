@@ -94,7 +94,7 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
 
 
     @Override
-    public List<Job> getCandidateJobs() {
+    public List<Job> getCandidateJobs(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         Job j = Jenkins.getActiveInstance().getItemByFullName(getJobName(), Job.class);
         if (j == null) {
             return Collections.emptyList();
@@ -103,7 +103,7 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     @Override
-    protected LoadTestMode startInternal() {
+    protected LoadTestMode startInternal(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         if (this.getLoadTestMode() == LoadTestMode.IDLE || this.getLoadTestMode() == LoadTestMode.RAMP_DOWN) {
             this.startTimeMillis = System.currentTimeMillis();
             LoadCalculator calc = getCalculator();
@@ -120,7 +120,7 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     @Override
-    public LoadTestMode stopInternal() {
+    public LoadTestMode stopInternal(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         return LoadTestMode.IDLE;
     }
 
@@ -144,8 +144,8 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     @Override
-    public int getRunsToLaunch(int currentRuns) {
-        if (!isActive()) {
+    public int getRunsToLaunch(@Nonnull LoadGeneratorRuntimeState runtimeState) {
+        if (runtimeState.isActive()) {
             return 0;
         }
 
@@ -159,10 +159,10 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
         if (time > (calc.startTimeMillis+calc.rampUpMillis)) {
             if (this.getLoadTestMode() != LoadTestMode.LOAD_TEST) {
                 // Engines already at full speed cap'n I canna go any faster
-                setLoadTestMode(LoadTestMode.LOAD_TEST);
+                runtimeState.setLoadTestMode(LoadTestMode.LOAD_TEST);
             }
         }
-        return calc.computeRunsToLaunch(time, currentRuns);
+        return calc.computeRunsToLaunch(time, runtimeState.getActiveCount());
     }
 
     @DataBoundConstructor
