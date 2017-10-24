@@ -17,7 +17,6 @@ public abstract class GeneratorControllerListener implements ExtensionPoint {
     public abstract void onGeneratorRemoved(@Nonnull LoadGenerator gen);
 
     /** Fired just before state change kicks in */
-    public abstract void onGeneratorReconfigured(@Nonnull LoadGenerator oldConfig, LoadGenerator newConfig);
     public abstract void onGeneratorStarted(@Nonnull LoadGenerator gen);
     public abstract void onGeneratorStopped(@Nonnull LoadGenerator gen);
 
@@ -34,19 +33,13 @@ public abstract class GeneratorControllerListener implements ExtensionPoint {
         }
     }
 
-    public static final void fireGeneratorReconfigured(@Nonnull LoadGenerator oldGen, @Nonnull LoadGenerator newGen){
-        for (GeneratorControllerListener listener : GeneratorControllerListener.all()) {
-            listener.onGeneratorReconfigured(oldGen, newGen);
-        }
-    }
-
-    public static final void fireGeneratorStarted(@Nonnull LoadGenerator gen){
+    public static final void fireGeneratorStarted(@Nonnull LoadGenerator gen, @Nonnull LoadGeneratorRuntimeState state){
         for (GeneratorControllerListener listener : GeneratorControllerListener.all()) {
             listener.onGeneratorStarted(gen);
         }
     }
 
-    public static final void fireGeneratorStopped(@Nonnull LoadGenerator gen){
+    public static final void fireGeneratorStopped(@Nonnull LoadGenerator gen, @Nonnull LoadGeneratorRuntimeState state){
         for (GeneratorControllerListener listener : GeneratorControllerListener.all()) {
             listener.onGeneratorStopped(gen);
         }

@@ -71,7 +71,7 @@ public class RegexMatchImmediateLG extends LoadGenerator {
     @Override
     public int getRunsToLaunch(@Nonnull LoadGeneratorRuntimeState runtimeState) {
         if (runtimeState.isActive() && getConcurrentRunCount() > 0) {
-            return getConcurrentRunCount()-runtimeState.getActiveCount();
+            return getConcurrentRunCount()-runtimeState.getTotalTaskCount();
         }
         return 0;
     }

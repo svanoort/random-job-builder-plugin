@@ -162,7 +162,7 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
                 runtimeState.setLoadTestMode(LoadTestMode.LOAD_TEST);
             }
         }
-        return calc.computeRunsToLaunch(time, runtimeState.getActiveCount());
+        return calc.computeRunsToLaunch(time, runtimeState.getTotalTaskCount());
     }
 
     @DataBoundConstructor
