@@ -45,28 +45,7 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
         return GeneratorController.getInstance();
     }
 
-    /** Get the base URL for Jenkins, first trying to use the request
-     *  and then falling back to manual configuration otherwise.
-     *
-     *  This ensures that we can address Jenkins if it is running in Docker
-     *   with a manually configured hostname.
-     */
-    @Restricted(NoExternalUse.class)
-    public String getRootUrl() {
-        // Note that the order of evaluation is the exact opposite of Jenkins#getRootUrl
-        try {
-            return Jenkins.getActiveInstance().getRootUrlFromRequest();
-        } catch (IllegalStateException ise) {
-            return Jenkins.getActiveInstance().getRootUrl();
-        }
-    }
 
-    @RequirePOST
-    public HttpResponse doAutostart(StaplerRequest req, @QueryParameter boolean autostartState) {
-        Jenkins.getActiveInstance().checkPermission(USE_PERMISSION);
-        getController().setAutostart(autostartState);
-        return HttpResponses.redirectToDot();
-    }
 
     @RequirePOST
     public HttpResponse doToggleGenerator(StaplerRequest req, @QueryParameter String generatorId) {
@@ -74,14 +53,16 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
         if (StringUtils.isEmpty(generatorId)) {
             return HttpResponses.errorWithoutStack(500, "You must supply a generator ID");
         } else {
+            GeneratorController controller = getController();
             LoadGenerator gen = getController().getRegisteredGeneratorbyId(generatorId);
             if (gen == null) {
                 return HttpResponses.errorWithoutStack(500, "Invalid Generator ID "+generatorId);
             }
-            if (gen.isActive()) {
-                gen.stop();
+            LoadGeneratorRuntimeState state = controller.getRuntimeState(gen);
+            if (state.isActive()) {
+                gen.stop(state);
             } else {
-                gen.start();
+                gen.start(state);
             } return HttpResponses.redirectToDot();
         }
     }
@@ -99,14 +80,18 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
         if (StringUtils.isEmpty(shortName)) {
             return HttpResponses.errorWithoutStack(500, "You must supply a short name");
         } else {
+
+            GeneratorController controller = getController();
             LoadGenerator gen = getController().getRegisteredGeneratorbyShortName(shortName);
             if (gen == null) {
                 return HttpResponses.errorWithoutStack(500, "Unrecognized short name "+shortName);
             }
-            if (gen.isActive()) {
-                gen.stop();
+            LoadGeneratorRuntimeState state = controller.getRuntimeState(gen);
+
+            if (state.isActive()) {
+                gen.stop(state);
             } else {
-                gen.start();
+                gen.start(state);
             } return HttpResponses.redirectToDot();
         }
     }
