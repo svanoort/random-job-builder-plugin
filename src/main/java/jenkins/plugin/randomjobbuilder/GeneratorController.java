@@ -205,11 +205,11 @@ public final class GeneratorController extends RunListener<Run> {
         }
         gen.stop(state);
         SecurityContext context;
-        synchronized (gen) {
+        synchronized (state) {
             ACL.impersonate(ACL.SYSTEM, new Runnable() {
                 @Override
                 public void run() {
-                    synchronized (gen) {
+                    synchronized (state) {
                         LoadGeneration.cancelItems(LoadGeneration.getQueueItemsFromLoadGenerator(gen));
                         for (Run r : state.getRuns()) {
                             Executor ex = r.getExecutor();
