@@ -36,22 +36,22 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     /** Compute desired runs to launch */
-    static int computeDesiredRuns(long currentTime, long startTimeMillis, long rampUpMillis, int finalConcurrentLoad) {
+    int computeDesiredRuns(long currentTime, long startTimeMillis) {
         if (currentTime >= (startTimeMillis +rampUpMillis)) {
-            return finalConcurrentLoad;
+            return getConcurrentRunCount();
         } else if (rampUpMillis <=0) {
-            return finalConcurrentLoad;
+            return getConcurrentRunCount();
         } else if (currentTime >= startTimeMillis) {
             double fractionDone = ((double)(currentTime- startTimeMillis)/(double)(rampUpMillis));
-            return (int)(Math.round((double)(finalConcurrentLoad)*fractionDone));
+            return (int)(Math.round((double)(getConcurrentRunCount())*fractionDone));
         } else {
             return 0;
         }
     }
 
     /** Based on linear ramp-up, compute how many runs to launch */
-    public int computeRunsToLaunch(long currentTime, long startTimeMillis, long rampUpMillis, int finalConcurrentLoad, boolean useJitter, int currentRuns) {
-        int target = computeDesiredRuns(currentTime, startTimeMillis, rampUpMillis, finalConcurrentLoad);
+    int computeRunsToLaunch(long currentTime, long startTimeMillis, int currentRuns) {
+        int target = computeDesiredRuns(currentTime, startTimeMillis);
         int delta = target-currentRuns;
         if (delta <= 0) {
             return 0;
@@ -75,6 +75,16 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
         }
 
         public void setStartTimeMillis(long startTimeMillis) {
+            this.startTimeMillis = startTimeMillis;
+        }
+
+        public TimedLoadGeneratorRuntimeState(){
+            super();
+        }
+
+        /** Convenience constructor for testing */
+        TimedLoadGeneratorRuntimeState(long startTimeMillis) {
+            super();
             this.startTimeMillis = startTimeMillis;
         }
     }
@@ -147,7 +157,7 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
                 runtimeState.setLoadTestMode(LoadTestMode.LOAD_TEST);
             }
         }
-        return computeRunsToLaunch(currentTime, timedState.getStartTimeMillis(), getRampUpMillis(), getConcurrentRunCount(), isUseJitter(), runtimeState.getTotalTaskCount());
+        return computeRunsToLaunch(currentTime, timedState.getStartTimeMillis(), runtimeState.getTotalTaskCount());
     }
 
     @DataBoundConstructor
@@ -176,6 +186,11 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
         this.useJitter = useJitter;
     }
 
+    @Override
+    public LoadGeneratorRuntimeState initializeState() {
+        return new TimedLoadGeneratorRuntimeState();
+    }
+
     @Extension
     public static class DescriptorImpl extends DescriptorBase {
         /**
@@ -194,11 +209,6 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
                 }
             }
             return c;
-        }
-
-        @Override
-        public LoadGeneratorRuntimeState initializeState() {
-            return new TimedLoadGeneratorRuntimeState();
         }
 
         @Override

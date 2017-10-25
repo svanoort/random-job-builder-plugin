@@ -20,52 +20,58 @@ public class SingleJobLinearRampUpLGTest {
 
     @Test
     public void testLoadCalculation() throws Exception {
-        SingleJobLinearRampUpLG.LoadCalculator calc = new SingleJobLinearRampUpLG.LoadCalculator(10, 1000L, 0, false);
+
+        int finalCurrentLoad = 10;
+        long rampUpMillis = 1000;
+        long startTimeMillis = 0;
+        boolean useJitter = false;
+
+        SingleJobLinearRampUpLG gen = new SingleJobLinearRampUpLG("bob");
+        SingleJobLinearRampUpLG.TimedLoadGeneratorRuntimeState timedState = (SingleJobLinearRampUpLG.TimedLoadGeneratorRuntimeState)gen.initializeState();
 
         // Once ramp-up is done, we need to
-        Assert.assertEquals(10, calc.computeDesiredRuns(2000L));
-        Assert.assertEquals(2, calc.computeDesiredRuns(200L));
-        Assert.assertEquals(4, calc.computeDesiredRuns(400L));
+        Assert.assertEquals(10, gen.computeDesiredRuns(2000L, startTimeMillis));
+        Assert.assertEquals(2, gen.computeDesiredRuns(200L, startTimeMillis));
+        Assert.assertEquals(4, gen.computeDesiredRuns(400L, startTimeMillis));
 
         // No ramp-up, no jitter, just return enough runs to bring up to the expected val
-        calc.finalConcurrentLoad = 37;
-        calc.rampUpMillis = -1;
-        Assert.assertEquals(37, calc.computeDesiredRuns(188));
-        Assert.assertEquals(37, calc.computeRunsToLaunch(188, 0));
-        Assert.assertEquals(36, calc.computeRunsToLaunch(188, 1));
-        Assert.assertEquals(0, calc.computeRunsToLaunch(188, calc.finalConcurrentLoad+5));
+        gen.setConcurrentRunCount(37);
+        gen.setRampUpMillis(-1);
+        Assert.assertEquals(37, gen.computeDesiredRuns(188, startTimeMillis));
+        Assert.assertEquals(37, gen.computeRunsToLaunch(188, startTimeMillis, 0));
+        Assert.assertEquals(36, gen.computeRunsToLaunch(188, startTimeMillis, 1));
+        Assert.assertEquals(0, gen.computeRunsToLaunch(188, startTimeMillis, gen.getConcurrentRunCount()+5));
 
         // Test with some randomization
-        calc.useJitter = true;
-        calc.finalConcurrentLoad = 14;
+        gen.setUseJitter(true);
+        gen.setConcurrentRunCount(14);
         for(int i=0; i<10; i++) {
-            int expected = calc.computeRunsToLaunch(-1, 7);
+            int expected = gen.computeRunsToLaunch(-1, 0, 7);
             Assert.assertTrue("Suggesting negative runs, that's bogus!", expected >= 0);
             Assert.assertTrue(MessageFormat.format("Launched too many runs ({0}), should not suggest more than 2x goal ({1})", expected, 14), expected <= 14);
         }
         for(int i=0; i<10; i++) {
-            Assert.assertEquals(0, calc.computeRunsToLaunch(-1, calc.finalConcurrentLoad));
-            Assert.assertEquals(0, calc.computeRunsToLaunch(System.currentTimeMillis(), calc.finalConcurrentLoad+1));
+            Assert.assertEquals(0, gen.computeRunsToLaunch(-1, 0, gen.getConcurrentRunCount()));
+            Assert.assertEquals(0, gen.computeRunsToLaunch(System.currentTimeMillis(), 0, gen.getConcurrentRunCount()+1));
         }
 
         // No jitter, linear ramp-up time
-        calc.useJitter = false;
-        calc.startTimeMillis = 0;
-        calc.finalConcurrentLoad = 100;
-        calc.rampUpMillis = 1000;
-        Assert.assertEquals(0, calc.computeDesiredRuns(-50));
-        Assert.assertEquals(50, calc.computeDesiredRuns(500));
-        Assert.assertEquals(25, calc.computeDesiredRuns(250));
-        Assert.assertEquals(25, calc.computeRunsToLaunch(250, 0));
-        Assert.assertEquals(15, calc.computeRunsToLaunch(250, 10));
-        Assert.assertEquals(100, calc.computeDesiredRuns(99999));
-        Assert.assertEquals(100, calc.computeRunsToLaunch(99999,0));
+        gen.setUseJitter(false);
+        gen.setConcurrentRunCount(100);
+        gen.setRampUpMillis(1000);
+        Assert.assertEquals(0, gen.computeDesiredRuns(-50, startTimeMillis));
+        Assert.assertEquals(50, gen.computeDesiredRuns(500, startTimeMillis));
+        Assert.assertEquals(25, gen.computeDesiredRuns(250, startTimeMillis));
+        Assert.assertEquals(25, gen.computeRunsToLaunch(250, 0L, 0));
+        Assert.assertEquals(15, gen.computeRunsToLaunch(250, 10L, 0));
+        Assert.assertEquals(100, gen.computeDesiredRuns(99999, startTimeMillis));
+        Assert.assertEquals(100, gen.computeRunsToLaunch(99999,0, 0));
 
-        calc.useJitter = true;
-        calc.finalConcurrentLoad = 100;
-        calc.rampUpMillis = 1000;
+        gen.setUseJitter(true);
+        gen.setConcurrentRunCount(100);
+        gen.setRampUpMillis(1000);
         for (int i=0; i<10; i++) {
-            int expected = calc.computeRunsToLaunch(500, 50);
+            int expected = gen.computeRunsToLaunch(500, 50, 0);
             Assert.assertTrue("Suggesting negative runs, that's bogus!", expected >= 0);
             Assert.assertTrue(MessageFormat.format("Launched too many runs ({0}), should not suggest more than 2x goal ({1})", expected, 100), expected <= 50);
         }
@@ -84,23 +90,23 @@ public class SingleJobLinearRampUpLGTest {
 
         Assert.assertEquals(8, trivial.getConcurrentRunCount());
         GeneratorController controller = GeneratorController.getInstance();
-        controller.registerOrUpdateGenerator(trivial);
+        controller.addLoadGenerator(trivial);
 
         // Check it queued up correctly
         Jenkins j = jenkinsRule.getInstance();
-        trivial.start();
-        controller.setAutostart(true);
+        LoadGeneratorRuntimeState state = controller.getRuntimeState(trivial);
+        trivial.start(state);
+
         Thread.sleep(5000L);
-        Assert.assertEquals(8, trivial.getRunsToLaunch(0));
+        Assert.assertEquals(8, trivial.getRunsToLaunch(state));
         Thread.sleep(GeneratorController.RECURRENCE_PERIOD_MILLIS+500L);
-        Assert.assertEquals(8, controller.getQueuedAndRunningCount(trivial));
-        Assert.assertEquals(8, controller.getRunningCount(trivial));
+        Assert.assertEquals(8, state.getRunningTaskCount());
+        Assert.assertEquals(8, state.getRunningTaskCount());
 
         // Stop and verify really stopped
         controller.unregisterAndStopGenerator(trivial);
-        Assert.assertEquals(0, controller.getQueuedAndRunningCount(trivial));
+        Assert.assertEquals(0, state.getTotalTaskCount());
         Assert.assertNull(controller.getRegisteredGeneratorbyId(trivial.generatorId));
         Assert.assertEquals(8, job.getBuilds().size());
-        controller.setAutostart(false);
     }
 }

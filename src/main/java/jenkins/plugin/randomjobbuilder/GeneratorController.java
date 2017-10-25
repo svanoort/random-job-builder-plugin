@@ -44,16 +44,23 @@ public final class GeneratorController extends RunListener<Run> {
     /** Stores the runtime information about currently active load generators, using the {@link LoadGenerator#generatorId} as an identifier */
     transient ConcurrentHashMap<String, LoadGeneratorRuntimeState> runtimeState = new ConcurrentHashMap<String, LoadGeneratorRuntimeState>();
 
-    /** Returns a snapshot of current registered load generators */
+    /** Returns a snapshot of current registered load generator */
     public List<LoadGenerator> getRegisteredGenerators() {
         return new ArrayList<LoadGenerator>(registeredGenerators.values());
+    }
+
+    public void addLoadGenerator(@Nonnull LoadGenerator gen) {
+        synchronized (gen) {
+            GeneratorControllerListener.fireGeneratorAdded(gen);
+            runtimeState.put(gen.getGeneratorId(), gen.initializeState());
+        }
     }
 
     /**
      * Unregister the generator and stop all jobs and tasks from it
      * @param generator Generator to unregister/remove
      */
-    void unregisterAndStopGenerator(@Nonnull LoadGenerator generator) {
+    public void unregisterAndStopGenerator(@Nonnull LoadGenerator generator) {
         LoadGeneratorRuntimeState state = getRuntimeState(generator);
         if (state == null) {
             registeredGenerators.remove(generator.getGeneratorId());
@@ -117,10 +124,7 @@ public final class GeneratorController extends RunListener<Run> {
 
         // Add entries for new generators
         for (LoadGenerator gen : Sets.difference(inputSet, registeredSet)) {
-            synchronized (gen) {
-                GeneratorControllerListener.fireGeneratorAdded(gen);
-                runtimeState.put(gen.getGeneratorId(), ((LoadGenerator.DescriptorBase)(gen.getDescriptor())).initializeState());
-            }
+            addLoadGenerator(gen);
         }
     }
 
@@ -190,6 +194,21 @@ public final class GeneratorController extends RunListener<Run> {
             }
             return toLaunch;
         }
+    }
+
+    public void stopAllAbruptly() {
+        for (LoadGenerator lg : getRegisteredGenerators()) {
+            stopAbruptly(lg);
+        }
+    }
+
+    public void start(@Nonnull LoadGenerator gen) {
+        LoadGeneratorRuntimeState state = runtimeState.get(gen.getGeneratorId());
+        if (state == null) {
+            addLoadGenerator(gen);
+            state = runtimeState.get(gen.getGeneratorId());
+        }
+        gen.start(state);
     }
 
     /** Shut down the generator, kill all its queued items, and cancel all its current runs
