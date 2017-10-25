@@ -38,14 +38,6 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
     @CheckForNull
     String description;
 
-    private LoadTestMode loadTestMode = LoadTestMode.IDLE;
-
-
-    @Exported
-    public LoadTestMode getLoadTestMode() {
-        return loadTestMode;
-    }
-
     public LoadGenerator() {
         this.generatorId = DescriptorBase.getNewGeneratorId();
         this.shortName = this.generatorId;
