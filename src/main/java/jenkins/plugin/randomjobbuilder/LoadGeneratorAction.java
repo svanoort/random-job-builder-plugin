@@ -59,7 +59,9 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
                 return HttpResponses.errorWithoutStack(500, "Invalid Generator ID "+generatorId);
             }
             LoadGeneratorRuntimeState state = controller.getRuntimeState(gen);
-            if (state.isActive()) {
+            if (state == null) {
+                return HttpResponses.errorWithoutStack(500, "Generator not registered with ID "+generatorId);
+            } else if (state.isActive()) {
                 gen.stop(state);
             } else {
                 gen.start(state);
@@ -87,8 +89,9 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
                 return HttpResponses.errorWithoutStack(500, "Unrecognized short name "+shortName);
             }
             LoadGeneratorRuntimeState state = controller.getRuntimeState(gen);
-
-            if (state.isActive()) {
+            if (state == null) {
+                return HttpResponses.errorWithoutStack(500, "Generator not registered with short name "+shortName);
+            } else if (state.isActive()) {
                 gen.stop(state);
             } else {
                 gen.start(state);

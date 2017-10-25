@@ -1,6 +1,7 @@
 package jenkins.plugin.randomjobbuilder;
 
 import com.google.common.collect.Sets;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.model.Executor;
 import hudson.model.Job;
@@ -132,8 +133,10 @@ public final class GeneratorController extends RunListener<Run> {
      * Track adding a queued task for the given generator
      * @param generator Generator that created the task
      */
+    @SuppressFBWarnings(value = "AT_OPERATION_SEQUENCE_ON_CONCURRENT_ABSTRACTION", justification = "Should be covered by synchronization in invokers.")
     void addQueueItem(@Nonnull LoadGenerator generator) {
         LoadGeneratorRuntimeState state = runtimeState.get(generator.getGeneratorId());
+
         if (state == null) {
             state = new LoadGeneratorRuntimeState();
             state.setQueuedTaskCount(1);
@@ -263,8 +266,8 @@ public final class GeneratorController extends RunListener<Run> {
     @Override
     public void onStarted(@Nonnull Run run, TaskListener listener) {
         String genId = LoadGeneration.getGeneratorCauseId(run);
-        if (genId != null && runtimeState.containsKey(genId)) {
-            LoadGeneratorRuntimeState state = getRuntimeState(genId);
+        final LoadGeneratorRuntimeState state = (genId != null) ? getRuntimeState(genId) : null;
+        if (genId != null && state != null) {
             synchronized (state) {
                 state.removeQueuedTask();
                 state.addRun(run);
@@ -276,8 +279,8 @@ public final class GeneratorController extends RunListener<Run> {
     @Override
     public void onFinalized(@Nonnull Run run) {
         String generatorId = LoadGeneration.getGeneratorCauseId(run);
-        if (generatorId != null && runtimeState.containsKey(generatorId)) {
-            LoadGeneratorRuntimeState state = getRuntimeState(generatorId);
+        LoadGeneratorRuntimeState state = null;
+        if (generatorId != null && (state = getRuntimeState(generatorId)) != null) {
             synchronized (state) {
                 state.removeRun(run);
                 checkLoadAndTriggerRuns(registeredGenerators.get(generatorId));
