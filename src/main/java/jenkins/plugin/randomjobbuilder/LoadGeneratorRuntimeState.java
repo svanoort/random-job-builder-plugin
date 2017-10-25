@@ -3,7 +3,6 @@ package jenkins.plugin.randomjobbuilder;
 import hudson.model.Run;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -11,18 +10,9 @@ import java.util.List;
  *  Used by controllers, and may be extended by load generators.
  */
 public class LoadGeneratorRuntimeState {
-    private boolean running = false;
     private LoadTestMode loadTestMode = LoadTestMode.IDLE;
     private int queuedTaskCount = 0;
     private List<Run> runs = new ArrayList<Run>();
-
-    public boolean isRunning() {
-        return running;
-    }
-
-    public void setRunning(boolean running) {
-        this.running = running;
-    }
 
     public LoadTestMode getLoadTestMode() {
         return loadTestMode;
@@ -60,7 +50,7 @@ public class LoadGeneratorRuntimeState {
 
     /** Return running + queued tasks */
     public int getTotalTaskCount() {
-        return getRunningTaskCount()+getRunningTaskCount();
+        return getQueuedTaskCount()+getRunningTaskCount();
     }
 
     public List<Run> getRuns() {

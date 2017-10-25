@@ -57,9 +57,13 @@ public class GeneratorControllerTest {
         // So it doesn't automatically start creating load
         RegexMatchImmediateLG trivial = new RegexMatchImmediateLG(".*", 8);
         GeneratorController controller = GeneratorController.getInstance();
+
         controller.addLoadGenerator(trivial);
-        controller.start(trivial);
         Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyId(trivial.generatorId));
+        Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyShortName(trivial.getShortName()));
+        Assert.assertNotNull("Generator not registered with runtime state after adding", GeneratorController.getInstance().getRuntimeState(trivial));
+
+        controller.start(trivial);
 
         // Incrementing & Decrementing Queue Item counts & seeing impact on controller & desired run count
         LoadGeneratorRuntimeState state = controller.getRuntimeState(trivial);

@@ -53,7 +53,8 @@ public final class GeneratorController extends RunListener<Run> {
     public void addLoadGenerator(@Nonnull LoadGenerator gen) {
         synchronized (gen) {
             GeneratorControllerListener.fireGeneratorAdded(gen);
-            runtimeState.put(gen.getGeneratorId(), gen.initializeState());
+            registeredGenerators.put(gen.getGeneratorId(), gen);
+            runtimeState.putIfAbsent(gen.getGeneratorId(), gen.initializeState());
         }
     }
 
