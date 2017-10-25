@@ -36,6 +36,9 @@ public class RegexMatchImmediateLGTest {
         assertEquals("Generator should start idle and didn't", LoadTestMode.IDLE, state.getLoadTestMode());
         assertEquals(".*", trivialMatch.getJobNameRegex());
         assertNotNull(trivialMatch.getGeneratorId());
+
+        state.setLoadTestMode(LoadTestMode.LOAD_TEST);
+        assertEquals("Active generator should try to launch jobs", 1, trivialMatch.getRunsToLaunch(state));
     }
 
     @Test

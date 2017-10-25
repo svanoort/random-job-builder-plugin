@@ -20,13 +20,10 @@ public class SingleJobLinearRampUpLGTest {
 
     @Test
     public void testLoadCalculation() throws Exception {
-
-        int finalCurrentLoad = 10;
-        long rampUpMillis = 1000;
         long startTimeMillis = 0;
-        boolean useJitter = false;
 
         SingleJobLinearRampUpLG gen = new SingleJobLinearRampUpLG("bob");
+        gen.setRampUpMillis(1000).setConcurrentRunCount(10).setUseJitter(false);
         SingleJobLinearRampUpLG.TimedLoadGeneratorRuntimeState timedState = (SingleJobLinearRampUpLG.TimedLoadGeneratorRuntimeState)gen.initializeState();
 
         // Once ramp-up is done, we need to
@@ -63,7 +60,7 @@ public class SingleJobLinearRampUpLGTest {
         Assert.assertEquals(50, gen.computeDesiredRuns(500, startTimeMillis));
         Assert.assertEquals(25, gen.computeDesiredRuns(250, startTimeMillis));
         Assert.assertEquals(25, gen.computeRunsToLaunch(250, 0L, 0));
-        Assert.assertEquals(15, gen.computeRunsToLaunch(250, 10L, 0));
+        Assert.assertEquals(15, gen.computeRunsToLaunch(250, 100L, 0));
         Assert.assertEquals(100, gen.computeDesiredRuns(99999, startTimeMillis));
         Assert.assertEquals(100, gen.computeRunsToLaunch(99999,0, 0));
 
@@ -71,9 +68,9 @@ public class SingleJobLinearRampUpLGTest {
         gen.setConcurrentRunCount(100);
         gen.setRampUpMillis(1000);
         for (int i=0; i<10; i++) {
-            int expected = gen.computeRunsToLaunch(500, 50, 0);
+            int expected = gen.computeRunsToLaunch(500, 0, 0);
             Assert.assertTrue("Suggesting negative runs, that's bogus!", expected >= 0);
-            Assert.assertTrue(MessageFormat.format("Launched too many runs ({0}), should not suggest more than 2x goal ({1})", expected, 100), expected <= 50);
+            Assert.assertTrue(MessageFormat.format("Launched too many runs ({0}), should not suggest more than 2x goal ({1})", expected, 100), expected <= 100);
         }
     }
 

@@ -130,18 +130,21 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     @DataBoundSetter
-    public void setConcurrentRunCount(int concurrentRunCount) {
+    public SingleJobLinearRampUpLG setConcurrentRunCount(int concurrentRunCount) {
         this.concurrentRunCount = concurrentRunCount;
+        return this;
     }
 
     @DataBoundSetter
-    public void setGeneratorId(@Nonnull String generatorId) {
+    @Override
+    public SingleJobLinearRampUpLG setGeneratorId(@Nonnull String generatorId) {
         super.setGeneratorId(generatorId);
+        return this;
     }
 
     @Override
     public int getRunsToLaunch(@Nonnull LoadGeneratorRuntimeState runtimeState) {
-        if (runtimeState.isActive()) {
+        if (!runtimeState.isActive()) {
             return 0;
         }
 
@@ -171,8 +174,9 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     @DataBoundSetter
-    public void setRampUpMillis(long rampUpMillis) {
+    public SingleJobLinearRampUpLG setRampUpMillis(long rampUpMillis) {
         this.rampUpMillis = rampUpMillis;
+        return this;
     }
 
     /** If true, we use randomization in the number of runs we launch, anywhere from 0 to 2x number needed to hit goal amt */
@@ -182,8 +186,9 @@ public class SingleJobLinearRampUpLG extends LoadGenerator {
     }
 
     @DataBoundSetter
-    public void setUseJitter(boolean useJitter) {
+    public SingleJobLinearRampUpLG setUseJitter(boolean useJitter) {
         this.useJitter = useJitter;
+        return this;
     }
 
     @Override

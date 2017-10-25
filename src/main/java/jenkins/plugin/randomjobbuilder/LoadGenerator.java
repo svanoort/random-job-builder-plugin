@@ -57,13 +57,14 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
 
     @DataBoundSetter
     @Restricted(NoExternalUse.class)
-    public void setGeneratorId(final String generatorId) {
+    public LoadGenerator setGeneratorId(final String generatorId) {
         if (StringUtils.isEmpty(generatorId)) {
             this.generatorId = DescriptorBase.getNewGeneratorId();
         } else {
             Jenkins.checkGoodName(generatorId);
             this.generatorId = generatorId;
         }
+        return this;
     }
 
     @Nonnull
@@ -74,12 +75,13 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
 
     @DataBoundSetter
     @Restricted(NoExternalUse.class)
-    public void setShortName(final String shortName) {
+    public LoadGenerator setShortName(final String shortName) {
         if (StringUtils.isEmpty(shortName)) {
             throw new IllegalArgumentException("Short name is empty and may not be");
         }
         Jenkins.checkGoodName(shortName);
         this.shortName = shortName;
+        return this;
     }
 
     @Exported
@@ -94,8 +96,9 @@ public abstract class LoadGenerator extends AbstractDescribableImpl<LoadGenerato
      */
     @Restricted(NoExternalUse.class)
     @DataBoundSetter
-    public void setDescription(final String desc) {
+    public LoadGenerator setDescription(final String desc) {
         this.description = desc;
+        return this;
     }
 
     /** Given current number of runs, launch more if needed.  Return number to fire now, or &lt;= 0 for none

@@ -45,8 +45,9 @@ public class RegexMatchImmediateLG extends LoadGenerator {
     }
 
     @DataBoundSetter
-    public void setJobNameRegex(String jobNameRegex) {
+    public RegexMatchImmediateLG setJobNameRegex(String jobNameRegex) {
         this.jobNameRegex = jobNameRegex;
+        return this;
     }
 
     /**
@@ -59,13 +60,15 @@ public class RegexMatchImmediateLG extends LoadGenerator {
     }
 
     @DataBoundSetter
-    public void setConcurrentRunCount(int concurrentRunCount) {
+    public RegexMatchImmediateLG setConcurrentRunCount(int concurrentRunCount) {
         this.concurrentRunCount = concurrentRunCount;
+        return this;
     }
 
     @DataBoundSetter
-    public void setGeneratorId(@Nonnull String generatorId) {
+    public RegexMatchImmediateLG setGeneratorId(@Nonnull String generatorId) {
         super.setGeneratorId(generatorId);
+        return this;
     }
 
     @Override
