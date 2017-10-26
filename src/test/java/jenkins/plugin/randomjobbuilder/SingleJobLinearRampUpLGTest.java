@@ -92,10 +92,13 @@ public class SingleJobLinearRampUpLGTest {
         // Check it queued up correctly
         Jenkins j = jenkinsRule.getInstance();
         LoadGeneratorRuntimeState state = controller.getRuntimeState(trivial);
-        trivial.start(state);
+        SingleJobLinearRampUpLG.TimedLoadGeneratorRuntimeState fakeFreshStart = (SingleJobLinearRampUpLG.TimedLoadGeneratorRuntimeState)(trivial.initializeState());
+        fakeFreshStart.setStartTimeMillis(System.currentTimeMillis());
+        fakeFreshStart.setLoadTestMode(LoadTestMode.LOAD_TEST);
 
+        trivial.start(state);
         Thread.sleep(5000L);
-        Assert.assertEquals(8, trivial.getRunsToLaunch(state));
+        Assert.assertEquals(8, trivial.getRunsToLaunch(fakeFreshStart));  // Compute how many we'd start
         Thread.sleep(GeneratorController.RECURRENCE_PERIOD_MILLIS+500L);
         Assert.assertEquals(8, state.getRunningTaskCount());
         Assert.assertEquals(8, state.getRunningTaskCount());

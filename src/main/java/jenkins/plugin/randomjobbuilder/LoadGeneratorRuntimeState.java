@@ -54,7 +54,7 @@ public class LoadGeneratorRuntimeState {
     }
 
     public List<Run> getRuns() {
-        return Collections.unmodifiableList(runs);
+        return new ArrayList<Run>(runs);
     }
 
     public void addRun(Run r) {

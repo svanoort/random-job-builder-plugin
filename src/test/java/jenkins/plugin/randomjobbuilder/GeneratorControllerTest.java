@@ -11,7 +11,10 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
+import java.lang.reflect.Array;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static junit.framework.Assert.*;
@@ -24,13 +27,89 @@ public class GeneratorControllerTest {
     public JenkinsRule jenkinsRule = new JenkinsRule();
 
     @Test
+    public void testTrivialAddRemoveStartStopGenerator() throws Exception {
+        GeneratorController controller = GeneratorController.getInstance();
+        RegexMatchImmediateLG trivial = new RegexMatchImmediateLG("never", 1);
+        trivial.setShortName("bob");
+
+        RegexMatchImmediateLG unregistered = new RegexMatchImmediateLG("never", 1);
+        unregistered.setShortName("unknwown");
+
+        Assert.assertTrue("Initial state of controller should be empty", controller.registeredGenerators.isEmpty());
+        Assert.assertTrue("Initial state of controller should be empty", controller.getRegisteredGenerators().isEmpty());
+        Assert.assertTrue("Initial state of controller should be empty", controller.runtimeState.isEmpty());
+        Assert.assertNull(controller.getRegisteredGeneratorbyId(unregistered.getGeneratorId()));
+        Assert.assertNull(controller.getRegisteredGeneratorbyShortName(unregistered.getShortName()));
+        Assert.assertNull(controller.getRuntimeState(unregistered));
+
+        controller.addLoadGenerator(trivial);
+        Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyShortName(trivial.getShortName()));
+        Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyId(trivial.getGeneratorId()));
+        Assert.assertNotNull(controller.getRuntimeState(trivial));
+        Assert.assertTrue(!controller.getRuntimeState(trivial).isActive());
+
+        // Stop something never started
+        controller.stopAbruptly(trivial);
+        Assert.assertNotNull(controller.getRuntimeState(trivial));
+        assert !controller.getRuntimeState(trivial).isActive();
+
+        controller.start(trivial);
+        LoadGeneratorRuntimeState state = controller.getRuntimeState(trivial);
+        Assert.assertTrue("Generator should be started ", state.isActive());
+        controller.unregisterAndStopGenerator(trivial);
+        Assert.assertFalse("Generator should be stopped ", state.isActive());
+        Assert.assertNull(controller.getRegisteredGeneratorbyShortName(trivial.getShortName()));
+        Assert.assertNull(controller.getRuntimeState(trivial));
+    }
+
+    @Test
+    public void testSynchronizeControllerList() throws Exception {
+        GeneratorController controller = GeneratorController.getInstance();
+
+        RegexMatchImmediateLG bob = new RegexMatchImmediateLG("never", 1);
+        bob.setShortName("bob");
+
+        RegexMatchImmediateLG guru = new RegexMatchImmediateLG("never2", 1);
+        guru.setShortName("guru");
+
+        RegexMatchImmediateLG guruReconfigured = new RegexMatchImmediateLG("never2", 1);
+        guru.setShortName("guru");
+        guruReconfigured.setGeneratorId(guru.getGeneratorId());
+
+        List<LoadGenerator> all = Arrays.asList(new LoadGenerator[]{bob, guru});
+        List<LoadGenerator> guruOnly = Arrays.asList(new LoadGenerator[]{guru});
+
+        controller.syncGenerators(all);
+        Assert.assertEquals(2, controller.registeredGenerators.values().size());
+        Assert.assertEquals(2, controller.getRegisteredGenerators().size());
+        Assert.assertEquals(2, controller.runtimeState.size());
+
+        controller.syncGenerators(guruOnly);
+        Assert.assertEquals(1, controller.registeredGenerators.values().size());
+        Assert.assertEquals(1, controller.getRegisteredGenerators().size());
+        Assert.assertEquals(1, controller.runtimeState.size());
+        Assert.assertNotNull(controller.getRuntimeState(guru));
+
+        controller.syncGenerators(Arrays.asList(new LoadGenerator[]{guruReconfigured}));
+        Assert.assertEquals(1, controller.registeredGenerators.values().size());
+        Assert.assertEquals(1, controller.getRegisteredGenerators().size());
+        Assert.assertEquals(1, controller.runtimeState.size());
+        Assert.assertNotNull(controller.getRuntimeState(guru));
+        Assert.assertNotNull(controller.getRuntimeState(guruReconfigured));
+
+        controller.syncGenerators(Collections.<LoadGenerator>emptyList());
+        Assert.assertEquals(0, controller.registeredGenerators.values().size());
+        Assert.assertEquals(0, controller.getRegisteredGenerators().size());
+        Assert.assertEquals(0, controller.runtimeState.size());
+    }
+
+    @Test
     public void testBasicGeneration() throws Exception {
         WorkflowJob job = jenkinsRule.jenkins.createProject(WorkflowJob.class, "TrivialJob");
         job.setBuildDiscarder(new LogRotator(-1, 20, -1, 40));
         job.setDefinition(new CpsFlowDefinition("echo 'I did something' \n" +
                 "sleep 1"));
         RegexMatchImmediateLG trivial = new RegexMatchImmediateLG(".*", 1);
-        LoadGeneration.DescriptorImpl desc = LoadGeneration.getDescriptorInstance();
 
         GeneratorController.getInstance().addLoadGenerator(trivial);
         GeneratorController.getInstance().start(trivial);
@@ -38,7 +117,7 @@ public class GeneratorControllerTest {
         Jenkins j = jenkinsRule.getInstance();
         Thread.sleep(4000L);
         System.out.println("Currently running jobs: "+j);
-        assertTrue("No jobs completed", job.getBuilds().size() > 0);
+        assertTrue("No jobs completed and some should be running", job.getBuilds().size() > 0);
 
         trivial.stop(GeneratorController.getInstance().getRuntimeState(trivial));
         Thread.sleep(6000L);
@@ -59,10 +138,6 @@ public class GeneratorControllerTest {
         GeneratorController controller = GeneratorController.getInstance();
 
         controller.addLoadGenerator(trivial);
-        Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyId(trivial.generatorId));
-        Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyShortName(trivial.getShortName()));
-        Assert.assertNotNull("Generator not registered with runtime state after adding", GeneratorController.getInstance().getRuntimeState(trivial));
-
         controller.start(trivial);
 
         // Incrementing & Decrementing Queue Item counts & seeing impact on controller & desired run count
@@ -132,32 +207,6 @@ public class GeneratorControllerTest {
         jenkinsRule.waitUntilNoActivityUpTo(2000);
 
         Assert.assertEquals(8,  job.getBuilds().size());
-    }
-
-    @Test
-    public void testControllerSync() throws Exception {
-        GeneratorController controller = GeneratorController.getInstance();
-
-        RegexMatchImmediateLG trivial = new RegexMatchImmediateLG(".*", 8);
-        controller.addLoadGenerator(trivial);
-        LoadGeneratorRuntimeState state = controller.getRuntimeState(trivial);
-        trivial.start(state);
-        RegexMatchImmediateLG trivial2 = new RegexMatchImmediateLG(".*foo", 4);
-        controller.addLoadGenerator(trivial2);
-        LoadGeneratorRuntimeState state2 = controller.getRuntimeState(trivial);
-        trivial2.setGeneratorId(trivial.generatorId);
-        trivial2.stop(state);
-
-        List<LoadGenerator> originalGenerators = Arrays.asList((LoadGenerator)trivial);
-        List<LoadGenerator> modifiedGenerators = Arrays.asList((LoadGenerator)trivial2);
-
-        controller.syncGenerators(originalGenerators);
-        Assert.assertEquals(1, controller.registeredGenerators.values().size());
-        Assert.assertTrue(trivial == controller.getRegisteredGeneratorbyId(trivial.getGeneratorId()));
-        Assert.assertEquals(state.getLoadTestMode(), controller.getRuntimeState(trivial).getLoadTestMode());
-
-        controller.syncGenerators(modifiedGenerators);
-        Assert.assertTrue(trivial2 == controller.getRegisteredGeneratorbyId(trivial.getGeneratorId()));
     }
 
     @Test
