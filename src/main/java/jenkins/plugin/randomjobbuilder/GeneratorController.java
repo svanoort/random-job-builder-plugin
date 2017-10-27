@@ -3,19 +3,24 @@ package jenkins.plugin.randomjobbuilder;
 import com.google.common.collect.Sets;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
+import hudson.XmlFile;
 import hudson.model.Executor;
 import hudson.model.Job;
 import hudson.model.PeriodicWork;
 import hudson.model.Run;
+import hudson.model.Saveable;
 import hudson.model.TaskListener;
 import hudson.model.listeners.RunListener;
 import hudson.security.ACL;
+import hudson.util.DescribableList;
+import hudson.util.XStream2;
 import jenkins.model.Jenkins;
 import org.acegisecurity.context.SecurityContext;
 
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
-import java.util.ArrayList;
+import java.io.File;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,27 +38,31 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  */
 @Extension
-public final class GeneratorController extends RunListener<Run> {
+public final class GeneratorController extends RunListener<Run> implements Saveable {
 
     public static final long RECURRENCE_PERIOD_MILLIS = 2000L;
 
     /** Map {@link LoadGenerator#generatorId} to the system-configured {@link LoadGenerator} instances.
      *
      */
-    ConcurrentHashMap<String, LoadGenerator> registeredGenerators = new ConcurrentHashMap<String, LoadGenerator>();
+    DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> registeredGenerators = new DescribableList<LoadGenerator, LoadGenerator.DescriptorBase>(this);
 
     /** Stores the runtime information about currently active load generators, using the {@link LoadGenerator#generatorId} as an identifier */
     transient ConcurrentHashMap<String, LoadGeneratorRuntimeState> runtimeState = new ConcurrentHashMap<String, LoadGeneratorRuntimeState>();
 
     /** Returns a snapshot of current registered load generator */
-    public List<LoadGenerator> getRegisteredGenerators() {
-        return new ArrayList<LoadGenerator>(registeredGenerators.values());
+    public DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> getRegisteredGenerators() {
+        return registeredGenerators;
+    }
+
+    public void setRegisteredGenerators(DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> gens) {
+        syncGenerators(gens);
     }
 
     public void addLoadGenerator(@Nonnull LoadGenerator gen) {
         synchronized (gen) {
             GeneratorControllerListener.fireGeneratorAdded(gen);
-            registeredGenerators.put(gen.getGeneratorId(), gen);
+            registeredGenerators.add(gen);
             runtimeState.putIfAbsent(gen.getGeneratorId(), gen.initializeState());
         }
     }
@@ -83,7 +92,12 @@ public final class GeneratorController extends RunListener<Run> {
      */
     @CheckForNull
     public LoadGenerator getRegisteredGeneratorbyId(@Nonnull String generatorId) {
-        return registeredGenerators.get(generatorId);
+        for (LoadGenerator lg : registeredGenerators) {
+            if (lg.getGeneratorId().equals(generatorId)) {
+                return lg;
+            }
+        }
+        return null;
     }
 
     /** Find generator by its unique ID or return null if not registered.
@@ -91,7 +105,7 @@ public final class GeneratorController extends RunListener<Run> {
      */
     @CheckForNull
     public LoadGenerator getRegisteredGeneratorbyShortName(@Nonnull String shortName) {
-        for (LoadGenerator lg : registeredGenerators.values()) {
+        for (LoadGenerator lg : registeredGenerators) {
             if (lg.getShortName().equals(shortName)) {
                 return lg;
             }
@@ -116,7 +130,7 @@ public final class GeneratorController extends RunListener<Run> {
      *  @param generators List of generators to add/remove/update
      */
      synchronized void syncGenerators(@Nonnull List<LoadGenerator> generators) {
-        Set<LoadGenerator> registeredSet = new HashSet<LoadGenerator>(registeredGenerators.values());
+        Set<LoadGenerator> registeredSet = new HashSet<LoadGenerator>(registeredGenerators);
         Set<LoadGenerator> inputSet = new HashSet<LoadGenerator>(generators);
 
         // Generators that are registered but not in input have been removed
@@ -252,7 +266,7 @@ public final class GeneratorController extends RunListener<Run> {
 
     /** Triggers load as needed for all the registered generators */
     public void maintainLoad() {
-        for (LoadGenerator lg : registeredGenerators.values()) {
+        for (LoadGenerator lg : registeredGenerators) {
             LoadGeneratorRuntimeState state = getRuntimeState(lg);
             if (state != null && state.isActive()) {
                 this.checkLoadAndTriggerRuns(lg);
@@ -260,10 +274,11 @@ public final class GeneratorController extends RunListener<Run> {
         }
     }
 
-    /** Run began - if generator is registered, track the new run and decrement queued items count for the generator
-     *  @param run
-     *  @param listener
-     */
+
+    public static GeneratorController getInstance() {
+        return Jenkins.getActiveInstance().getExtensionList(GeneratorController.class).get(0);
+    }
+
     @Override
     public void onStarted(@Nonnull Run run, TaskListener listener) {
         String genId = LoadGeneration.getGeneratorCauseId(run);
@@ -284,13 +299,27 @@ public final class GeneratorController extends RunListener<Run> {
         if (generatorId != null && (state = getRuntimeState(generatorId)) != null) {
             synchronized (state) {
                 state.removeRun(run);
-                checkLoadAndTriggerRuns(registeredGenerators.get(generatorId));
+                checkLoadAndTriggerRuns(getRegisteredGeneratorbyId(generatorId));
             }
         }
     }
 
-    public static GeneratorController getInstance() {
-        return Jenkins.getActiveInstance().getExtensionList(GeneratorController.class).get(0);
+    static final XStream2 XSTREAM = new XStream2();
+
+    // Needed to be able to store this
+    @Override
+    public void save() throws IOException {
+        XmlFile file = new XmlFile(new File(Jenkins.getInstance().getRootDir(), "loadGenerators.xml"));
+        file.write(this);
+    }
+
+    public static GeneratorController load() throws IOException {
+        XmlFile file = new XmlFile(new File(Jenkins.getInstance().getRootDir(), "loadGenerators.xml"));
+        if (file.exists()) {
+            return (GeneratorController)(file.read());
+        } else {
+            return new GeneratorController();
+        }
     }
 
     /** Periodically starts up load again if toggled */

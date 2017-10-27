@@ -1,13 +1,16 @@
 package jenkins.plugin.randomjobbuilder;
 
+import hudson.DescriptorExtensionList;
 import hudson.Extension;
 import hudson.model.Action;
+import hudson.model.Descriptor;
 import hudson.model.ModelObject;
 import hudson.model.RootAction;
 import hudson.model.TopLevelItem;
 import hudson.security.ACL;
 import hudson.security.AccessControlled;
 import hudson.security.Permission;
+import hudson.util.DescribableList;
 import hudson.util.HttpResponses;
 import jenkins.model.Jenkins;
 import jenkins.model.ModelObjectWithContextMenu;
@@ -26,6 +29,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Provides the LoadGenerator controller view, APIs for the UI, and externalizable HTTP APIs to control generators
@@ -45,7 +49,9 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
         return GeneratorController.getInstance();
     }
 
-
+    public DescriptorExtensionList<LoadGenerator, LoadGenerator.DescriptorBase> getLoadGeneratorDescriptors() {
+        return Jenkins.getActiveInstance().getDescriptorList(LoadGenerator.class);
+    }
 
     @RequirePOST
     public HttpResponse doToggleGenerator(StaplerRequest req, @QueryParameter String generatorId) {
@@ -135,6 +141,20 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
             }
         };
     }
+
+    /*public DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> getGeneratorList() {
+        GeneratorController cont = getController();
+        List<LoadGenerator> gens = cont.getRegisteredGenerators();
+
+        // Unclear if this is the right path...?
+        DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> loadGenList = new DescribableList<LoadGenerator, LoadGenerator.DescriptorBase>(cont);
+    }
+
+    public void setGeneratorList(DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> loadGenerators) {
+        loadGenerators.rebuildHetero(req, json, Jenkins.getActiveInstance().getExtensionList(LoadGenerator.DescriptorBase.class), "loadGenerators");
+        GeneratorController.getInstance().syncGenerators(loadGenerators);
+//        save();
+    }*/
 
     @Override
     public void checkPermission(@Nonnull Permission permission) throws AccessDeniedException {
