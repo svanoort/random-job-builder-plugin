@@ -87,7 +87,7 @@ public class SingleJobLinearRampUpLGTest {
 
         Assert.assertEquals(8, trivial.getConcurrentRunCount());
         GeneratorController controller = GeneratorController.getInstance();
-        controller.addLoadGenerator(trivial);
+        controller.addOrUpdateLoadGenerator(trivial);
 
         // Check it queued up correctly
         Jenkins j = jenkinsRule.getInstance();

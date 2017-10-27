@@ -59,10 +59,22 @@ public final class GeneratorController extends RunListener<Run> implements Savea
         syncGenerators(gens);
     }
 
-    public void addLoadGenerator(@Nonnull LoadGenerator gen) {
+    /** Add new load generator, or update existing one if one matches the ID */
+    public void addOrUpdateLoadGenerator(@Nonnull LoadGenerator gen) {
         synchronized (gen) {
-            GeneratorControllerListener.fireGeneratorAdded(gen);
-            registeredGenerators.add(gen);
+            int matchId = -1;
+            for (int i=0; i<registeredGenerators.size(); i++) {
+                if (gen.getGeneratorId().equals(registeredGenerators.get(i))) {
+                    matchId = i;
+                    break;
+                }
+            }
+            if (matchId == -1) {  // Don't add duplicate generators
+                GeneratorControllerListener.fireGeneratorAdded(gen);
+                registeredGenerators.add(gen);
+            } else {
+                registeredGenerators.set(matchId, gen);
+            }
             runtimeState.putIfAbsent(gen.getGeneratorId(), gen.initializeState());
         }
     }
@@ -74,17 +86,17 @@ public final class GeneratorController extends RunListener<Run> implements Savea
     public void unregisterAndStopGenerator(@Nonnull LoadGenerator generator) {
         LoadGeneratorRuntimeState state = getRuntimeState(generator);
         if (state == null) {
-            registeredGenerators.remove(generator.getGeneratorId());
+            registeredGenerators.remove(generator);
             return;
         }
 
         synchronized (state) {
             generator.stop(state);
             this.stopAbruptly(generator);
-            registeredGenerators.remove(generator.getGeneratorId());
+            registeredGenerators.remove(generator);
             runtimeState.remove(generator.getGeneratorId());
-            GeneratorControllerListener.fireGeneratorRemoved(generator);
         }
+        GeneratorControllerListener.fireGeneratorRemoved(generator);
     }
 
     /** Find generator by its unique ID or return null if not registered
@@ -140,7 +152,11 @@ public final class GeneratorController extends RunListener<Run> implements Savea
 
         // Add entries for new generators
         for (LoadGenerator gen : Sets.difference(inputSet, registeredSet)) {
-            addLoadGenerator(gen);
+            addOrUpdateLoadGenerator(gen);
+        }
+
+        for (LoadGenerator gen : Sets.intersection(inputSet, registeredSet)) {
+
         }
     }
 
@@ -223,7 +239,7 @@ public final class GeneratorController extends RunListener<Run> implements Savea
     public void start(@Nonnull LoadGenerator gen) {
         LoadGeneratorRuntimeState state = runtimeState.get(gen.getGeneratorId());
         if (state == null) {
-            addLoadGenerator(gen);
+            addOrUpdateLoadGenerator(gen);
             state = runtimeState.get(gen.getGeneratorId());
         }
         gen.start(state);

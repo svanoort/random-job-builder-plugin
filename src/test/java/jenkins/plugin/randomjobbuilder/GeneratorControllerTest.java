@@ -11,8 +11,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 
-import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -42,7 +40,7 @@ public class GeneratorControllerTest {
         Assert.assertNull(controller.getRegisteredGeneratorbyShortName(unregistered.getShortName()));
         Assert.assertNull(controller.getRuntimeState(unregistered));
 
-        controller.addLoadGenerator(trivial);
+        controller.addOrUpdateLoadGenerator(trivial);
         Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyShortName(trivial.getShortName()));
         Assert.assertEquals(trivial, controller.getRegisteredGeneratorbyId(trivial.getGeneratorId()));
         Assert.assertNotNull(controller.getRuntimeState(trivial));
@@ -80,25 +78,25 @@ public class GeneratorControllerTest {
         List<LoadGenerator> guruOnly = Arrays.asList(new LoadGenerator[]{guru});
 
         controller.syncGenerators(all);
-        Assert.assertEquals(2, controller.registeredGenerators.values().size());
+        Assert.assertEquals(2, controller.registeredGenerators.size());
         Assert.assertEquals(2, controller.getRegisteredGenerators().size());
         Assert.assertEquals(2, controller.runtimeState.size());
 
         controller.syncGenerators(guruOnly);
-        Assert.assertEquals(1, controller.registeredGenerators.values().size());
+        Assert.assertEquals(1, controller.registeredGenerators.size());
         Assert.assertEquals(1, controller.getRegisteredGenerators().size());
         Assert.assertEquals(1, controller.runtimeState.size());
         Assert.assertNotNull(controller.getRuntimeState(guru));
 
         controller.syncGenerators(Arrays.asList(new LoadGenerator[]{guruReconfigured}));
-        Assert.assertEquals(1, controller.registeredGenerators.values().size());
+        Assert.assertEquals(1, controller.registeredGenerators.size());
         Assert.assertEquals(1, controller.getRegisteredGenerators().size());
         Assert.assertEquals(1, controller.runtimeState.size());
         Assert.assertNotNull(controller.getRuntimeState(guru));
         Assert.assertNotNull(controller.getRuntimeState(guruReconfigured));
 
         controller.syncGenerators(Collections.<LoadGenerator>emptyList());
-        Assert.assertEquals(0, controller.registeredGenerators.values().size());
+        Assert.assertEquals(0, controller.registeredGenerators.size());
         Assert.assertEquals(0, controller.getRegisteredGenerators().size());
         Assert.assertEquals(0, controller.runtimeState.size());
     }
@@ -111,7 +109,7 @@ public class GeneratorControllerTest {
                 "sleep 1"));
         RegexMatchImmediateLG trivial = new RegexMatchImmediateLG(".*", 1);
 
-        GeneratorController.getInstance().addLoadGenerator(trivial);
+        GeneratorController.getInstance().addOrUpdateLoadGenerator(trivial);
         GeneratorController.getInstance().start(trivial);
 
         Jenkins j = jenkinsRule.getInstance();
@@ -137,7 +135,7 @@ public class GeneratorControllerTest {
         RegexMatchImmediateLG trivial = new RegexMatchImmediateLG(".*", 8);
         GeneratorController controller = GeneratorController.getInstance();
 
-        controller.addLoadGenerator(trivial);
+        controller.addOrUpdateLoadGenerator(trivial);
         controller.start(trivial);
 
         // Incrementing & Decrementing Queue Item counts & seeing impact on controller & desired run count
@@ -190,7 +188,7 @@ public class GeneratorControllerTest {
         Assert.assertEquals(8, trivial.getConcurrentRunCount());
         LoadGeneration.DescriptorImpl desc = LoadGeneration.getDescriptorInstance();
         GeneratorController controller = GeneratorController.getInstance();
-        controller.addLoadGenerator(trivial);
+        controller.addOrUpdateLoadGenerator(trivial);
         LoadGeneratorRuntimeState state = controller.getRuntimeState(trivial);
 
         // Check it queued up correctly
@@ -219,7 +217,7 @@ public class GeneratorControllerTest {
         Assert.assertEquals(8, trivial.getConcurrentRunCount());
         LoadGeneration.DescriptorImpl desc = LoadGeneration.getDescriptorInstance();
         GeneratorController controller = GeneratorController.getInstance();
-        controller.addLoadGenerator(trivial);
+        controller.addOrUpdateLoadGenerator(trivial);
 
         // Check it queued up correctly
         Jenkins j = jenkinsRule.getInstance();
