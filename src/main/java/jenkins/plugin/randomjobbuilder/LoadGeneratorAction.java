@@ -26,6 +26,7 @@ import org.kohsuke.stapler.interceptor.RequirePOST;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 /**
  * Provides the LoadGenerator controller view, APIs for the UI, and externalizable HTTP APIs to control generators
@@ -65,6 +66,27 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
     public HttpResponse doAutostart(StaplerRequest req, @QueryParameter boolean autostartState) {
         Jenkins.getActiveInstance().checkPermission(USE_PERMISSION);
         getController().setAutostart(autostartState);
+        return HttpResponses.redirectToDot();
+    }
+
+    public List<LoadGenerator> doGeneratorList() {
+        return getController().getRegisteredGenerators();
+    }
+
+    @RequirePOST
+    public HttpResponse doAddLinearRampupGenerator(StaplerRequest req, @QueryParameter String shortName, @QueryParameter String jobName, @QueryParameter int maxConcurrency, @QueryParameter long rampUpMillis) {
+        return doAddLinearRampupGenerator(req, shortName, jobName, maxConcurrency, rampUpMillis, false);
+    }
+
+    @RequirePOST
+    public HttpResponse doAddLinearRampupGenerator(StaplerRequest req, @QueryParameter String shortName, @QueryParameter String jobName, @QueryParameter int maxConcurrency, @QueryParameter long rampUpMillis, @QueryParameter boolean useJitter) {
+        Jenkins.getActiveInstance().checkPermission(USE_PERMISSION);
+        SingleJobLinearRampUpLG linearGen = new SingleJobLinearRampUpLG(jobName);
+        linearGen.setUseJitter(useJitter);
+        linearGen.setConcurrentRunCount(maxConcurrency);
+        linearGen.setJobName(jobName);
+        linearGen.setRampUpMillis(rampUpMillis);
+        getController().registerOrUpdateGenerator(linearGen);
         return HttpResponses.redirectToDot();
     }
 
