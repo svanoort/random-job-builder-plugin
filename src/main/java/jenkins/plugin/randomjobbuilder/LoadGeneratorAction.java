@@ -73,21 +73,37 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
         return getController().getRegisteredGenerators();
     }
 
-    @RequirePOST
-    public HttpResponse doAddLinearRampupGenerator(StaplerRequest req, @QueryParameter String shortName, @QueryParameter String jobName, @QueryParameter int maxConcurrency, @QueryParameter long rampUpMillis) {
-        return doAddLinearRampupGenerator(req, shortName, jobName, maxConcurrency, rampUpMillis, false);
+    public HttpResponse doKillGeneratorJobs(StaplerRequest req, @QueryParameter(required = true) String generatorName) {
+        try {
+            Jenkins.getActiveInstance().checkPermission(USE_PERMISSION);
+            GeneratorController controller = getController();
+            LoadGenerator gen = controller.getRegisteredGeneratorbyShortName(generatorName);
+            if (gen == null) {
+                return HttpResponses.error(500, "Generator named "+generatorName+" does not exist");
+            }
+            controller.stopAbruptly(gen);
+            return HttpResponses.ok();
+        } catch (Exception e) {
+            return HttpResponses.error(e);
+        }
     }
 
     @RequirePOST
-    public HttpResponse doAddLinearRampupGenerator(StaplerRequest req, @QueryParameter String shortName, @QueryParameter String jobName, @QueryParameter int maxConcurrency, @QueryParameter long rampUpMillis, @QueryParameter boolean useJitter) {
-        Jenkins.getActiveInstance().checkPermission(USE_PERMISSION);
-        SingleJobLinearRampUpLG linearGen = new SingleJobLinearRampUpLG(jobName);
-        linearGen.setUseJitter(useJitter);
-        linearGen.setConcurrentRunCount(maxConcurrency);
-        linearGen.setJobName(jobName);
-        linearGen.setRampUpMillis(rampUpMillis);
-        getController().registerOrUpdateGenerator(linearGen);
-        return HttpResponses.redirectToDot();
+    public HttpResponse doAddLinearRampupGenerator(StaplerRequest req, @QueryParameter(required = true) String shortName, @QueryParameter(required = true) String jobName, @QueryParameter String maxConcurrency, @QueryParameter String rampUpMillis, @QueryParameter Boolean useJitter) {
+        try {
+            Jenkins.getActiveInstance().checkPermission(USE_PERMISSION);
+            SingleJobLinearRampUpLG linearGen = new SingleJobLinearRampUpLG(jobName);
+            linearGen.setUseJitter(useJitter != null ? useJitter : false);
+            linearGen.setConcurrentRunCount((maxConcurrency != null) ? Integer.parseInt(maxConcurrency) : 1);
+            linearGen.setJobName(jobName);
+            linearGen.setShortName(shortName);
+            linearGen.setRampUpMillis(rampUpMillis != null ? Long.parseLong(rampUpMillis) : -1);
+
+            LoadGeneration.getDescriptorInstance().addOrUpdateGenerator(linearGen);
+            return HttpResponses.ok();
+        } catch (Exception e) {
+            return HttpResponses.error(e);
+        }
     }
 
     @RequirePOST

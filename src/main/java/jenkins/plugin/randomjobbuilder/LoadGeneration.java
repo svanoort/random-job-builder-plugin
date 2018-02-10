@@ -44,7 +44,7 @@ public class LoadGeneration extends AbstractDescribableImpl<LoadGeneration>  {
     @Extension
     public static class DescriptorImpl extends Descriptor<LoadGeneration> {
 
-        private DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> loadGenerators = new DescribableList<LoadGenerator, LoadGenerator.DescriptorBase>(this);
+        DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> loadGenerators = new DescribableList<LoadGenerator, LoadGenerator.DescriptorBase>(this);
 
         public DescribableList<LoadGenerator, LoadGenerator.DescriptorBase> getLoadGenerators() {
             return loadGenerators;
@@ -52,6 +52,26 @@ public class LoadGeneration extends AbstractDescribableImpl<LoadGeneration>  {
 
         public String getDisplayName() {
             return "Load Generation";
+        }
+
+        /** Dirty hack but this lets REST API modify generators AND have it show in the UI */
+        void addOrUpdateGenerator(LoadGenerator gen) {
+            int index = -1;
+            for (int i=0; i< loadGenerators.size(); i++) {
+                LoadGenerator lg = loadGenerators.get(i);
+                if (lg.getShortName().equals(gen.shortName)) {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index > -1) {
+                loadGenerators.set(index, gen);
+            } else {
+                loadGenerators.add(gen);
+            }
+            GeneratorController.getInstance().syncGenerators(loadGenerators);
+            save();
         }
 
         @Override
