@@ -99,7 +99,11 @@ public class LoadGeneratorAction implements Action, AccessControlled, ModelObjec
             linearGen.setShortName(shortName);
             linearGen.setRampUpMillis(rampUpMillis != null ? Long.parseLong(rampUpMillis) : -1);
 
-            LoadGeneration.getDescriptorInstance().addOrUpdateGenerator(linearGen);
+            LoadGenerator replacedBy = getController().getRegisteredGeneratorbyShortName(shortName);
+            if (replacedBy != null) {
+                linearGen.setGeneratorId(replacedBy.getGeneratorId());
+            }
+            getController().registerOrUpdateGenerator(linearGen);
             return HttpResponses.ok();
         } catch (Exception e) {
             return HttpResponses.error(e);
